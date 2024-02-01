@@ -63,7 +63,7 @@ int globalConfig(const char *key, const char *value) {
             return 1;
         }
 
-        fprintf(file, "username: %s", value);
+        fprintf(file, "username: %s\n", value);
         fclose(file);
         return 0;
     }
@@ -74,7 +74,7 @@ int globalConfig(const char *key, const char *value) {
             return 1;
         }
 
-        fprintf(file, "useremail: %s", value);
+        fprintf(file, "useremail: %s\n", value);
         fclose(file);
         return 0;
     }
@@ -82,6 +82,38 @@ int globalConfig(const char *key, const char *value) {
 }
 
 
+int runInit() {
+    char parentdir[MAX_LENGTH];
+    char currentdir[MAX_LENGTH];
+    if (getcwd(currentdir, MAX_LENGTH) == NULL)
+        return 1;
+
+
+    do{
+        if (access(".neogit", F_OK) == 0){
+        perror("Neogit repository already exists");
+        return 1;
+        }
+
+        if (chdir("..") != 0)
+            return 1;
+
+        if (getcwd(parentdir, MAX_LENGTH) == NULL)
+            return 1;
+
+
+    } while (strcmp(parentdir, "/") != 0);
+
+    if (chdir(currentdir) != 0)
+        return 1;
+
+    if (mkdir (".neogit", 0755) != 0)
+        return 1;
+
+    printf("Empty Neogit repository initialized in %s\n", currentdir);
+    return 0;
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -95,10 +127,12 @@ int main(int argc, char* argv[])
         return globalConfig(argv[3], argv[4]);
 
     else if (strcmp(argv[1], "alias") == 0)
-        addAlias(argv[2], argv[3]);
+        return addAlias(argv[2], argv[3]);
+    else if (strcmp(argv[1], "init") == 0)
+        return runInit();
 
     else
-        execAlias(argv[1]);
+        return execAlias(argv[1]);
 
 
 
