@@ -8,35 +8,43 @@
 #include <sys/types.h>
 #include <time.h>
 
-#define MAX_ALIASES 128
+#define MAX_LENGTH 1000
 
-struct alias_cmd {
-    char *alias;
-    char *command;
-};
 
-struct alias_cmd aliases[MAX_ALIASES];
-int num_aliases = 0;
+int addAlias(char* alias, char* command){
+    FILE* file = fopen (".neogit/aliases", "a");
+    if (file == NULL){
+        perror ("Error opening aliases file");
+        return 1;
+    }
 
-int num_config = 0;
+    fprintf(file, "%s : %s\n", alias, command);
+    fclose(file);
+    return 0;
 
-void add_alias(char *alias, char *command) {
-    strcpy(aliases[num_aliases].alias, alias);
-    strcpy(aliases[num_aliases].command, command);
-    num_aliases++;
 }
 
 
-void exec_alias(char *alias) {
-    for (int i = 0; i < num_aliases; i++) {
-        if (strcmp(aliases[i].alias, alias) == 0) {
-            char cmd[1024];
-            strcpy(cmd, aliases[i].command);
-            system(cmd);
-            break;
+int execAlias(char* alias){
+    char line[MAX_LENGTH];
+    char orgAlias[MAX_LENGTH];
+    char command[MAX_LENGTH];
+
+    FILE* file = fopen(".neogit/aliases", "r");
+
+    while ( fgets(line, MAX_LENGTH, file) != NULL){
+        sscanf(line, "%s : %[^\n]s\n", orgAlias, command);
+        if (strcmp(orgAlias, alias) == 0){
+            system(command);
+            return 0;
         }
     }
+
+    perror ("Invalid alias");
+    return 1;
+
 }
+
 
 int globalConfig(const char *key, const char *value) {
 
@@ -87,10 +95,10 @@ int main(int argc, char* argv[])
         return globalConfig(argv[3], argv[4]);
 
     else if (strcmp(argv[1], "alias") == 0)
-        add_alias(argv[2], argv[3]);
+        addAlias(argv[2], argv[3]);
 
     else
-        exec_alias(argv[1]);
+        execAlias(argv[1]);
 
 
 
