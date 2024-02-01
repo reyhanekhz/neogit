@@ -47,14 +47,6 @@ int execAlias(char* alias){
 
 
 int globalConfig(const char *key, const char *value) {
-
-    if (access(".neogit/config", F_OK) == -1) {
-        if (mkdir(".neogit/config", 0755) != 0) {
-            perror("error creating config directory");
-            return 1;
-        }
-    }
-
     if (strcmp(key, "user.name") == 0)
     {
         FILE* file = fopen(".neogit/config/username", "w");
@@ -107,10 +99,59 @@ int runInit() {
     if (chdir(currentdir) != 0)
         return 1;
 
-    if (mkdir (".neogit", 0755) != 0)
+    if (mkdir (".neogit", 0755) != 0){
+        perror("Error creating Neogit directory");
         return 1;
+    }
+
+
+    if(mkdir(".neogit/config", 0755) != 0){
+        perror("Error creating config directory");
+        return 1;
+    }
+
+    FILE* file = fopen (".neogit/config/username", "w");
+    fclose(file);
+
+    file = fopen (".neogit/config/useremail", "w");
+    fclose(file);
+
+    file = fopen (".neogit/staging", "w");
+    fclose(file);
+
+    file = fopen(".neogit/tracks", "w");
+    fclose(file);
+
 
     printf("Empty Neogit repository initialized in %s\n", currentdir);
+    return 0;
+
+}
+
+
+int addToStaging(char* filepath){
+    FILE* file = fopen (".neogit/staging", "r");
+    if (file == NULL)
+        return 1;
+
+    char line[MAX_LENGTH];
+    char path[MAX_LENGTH];
+    sprintf(path, "%s\n", filepath);
+
+    while (fgets(line, MAX_LENGTH, file) != NULL){
+        if (strcmp(line, path) == 0){
+            printf("File already added to staging area");
+            return 0;
+        }
+    }
+    fclose (file);
+
+    file = fopen (".neogit/staging", "w");
+    if (file == NULL)
+        return 1;
+
+    fprintf(file, "%s\n", path);
+    fclose (file);
     return 0;
 
 }
@@ -130,12 +171,18 @@ int main(int argc, char* argv[])
         return addAlias(argv[2], argv[3]);
     else if (strcmp(argv[1], "init") == 0)
         return runInit();
+    else if (strcmp(argv[1], "add") == 0){
+        if (argc == 2){
+            perror ("No files specified");
+            return 1;
+        }
+        return addToStaging(argv[2]);
+    }
+
+
 
     else
         return execAlias(argv[1]);
-
-
-
 
     return 0;
 
