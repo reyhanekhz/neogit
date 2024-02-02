@@ -109,17 +109,26 @@ int runInit() {
         perror("Error creating config directory");
         return 1;
     }
+    if(mkdir(".neogit/commits", 0755) != 0){
+        perror("Error creating commit directory");
+        return 1;
+    }
+    if(mkdir(".neogit/files", 0755) != 0){
+        perror("Error creating files directory");
+        return 1;
+    }
 
     FILE* file = fopen (".neogit/config/username", "w");
     fclose(file);
-
     file = fopen (".neogit/config/useremail", "w");
     fclose(file);
-
+    file = fopen (".neogit/config/trackedFiles", "w");
+    fclose(file);
     file = fopen (".neogit/staging", "w");
     fclose(file);
-
     file = fopen(".neogit/tracks", "w");
+    fclose(file);
+    file = fopen(".neogit/commitID", "w");
     fclose(file);
 
 
@@ -156,6 +165,64 @@ int addToStaging(char* filepath){
 
 }
 
+int commit(){
+    FILE* file = fopen(".neogit/staging", "r");
+    char filepath[MAX_LENGTH];
+    char line[MAX_LENGTH];
+    int commitID = 3;
+
+    while (fgets(line, MAX_LENGTH, file) != NULL){
+        sscanf(line, "%s\n", filepath);
+        char adr[MAX_LENGTH];
+        sprintf(adr, ".neogit/files/%s", filepath);
+        if (access(adr, F_OK) != 0){
+            buildFileCommitDirectory(filepath);
+        }
+        copyFile(commitID, filepath);
+    }
+    fclose(file);
+
+    file = fopen(".neogit/staging", "w");
+    if (file == NULL) return 1;
+    fclose(file);
+
+}
+
+int buildFileCommitDirectory(char* filepath){
+    char fileadr[MAX_LENGTH];
+    sprintf(fileadr, ".neogit/files/%s", filepath);
+    if (mkdir (fileadr, 0755) != 0){
+        perror ("Error creating file commit directory");
+        return 1;
+    }
+    return 0;
+}
+
+
+int copyFile(int commitID, char* filepath){
+    FILE* orgfile = fopen(filepath, "r");
+    if (orgfile == NULL)
+        return 1;
+
+    char copypath[MAX_LENGTH];
+    sprintf(copypath, ".neogit/files/%s/%d", filepath, commitID);
+    FILE* copyfile = fopen(copypath, "w");
+    if (copyfile == NULL)
+        return 1;
+
+
+    char line[MAX_LENGTH];
+
+    while (fgets(line, MAX_LENGTH, orgfile) != NULL){
+        fprintf(copyfile, "%s", line);
+    }
+    fclose(orgfile);
+    fclose(copyfile);
+
+    return 0;
+}
+
+
 int main(int argc, char* argv[])
 {
     if (argc == 1)
@@ -178,9 +245,9 @@ int main(int argc, char* argv[])
         }
         return addToStaging(argv[2]);
     }
-
-
-
+    else if (strcmp(argv[1], "commit") == 0){
+        commit();
+    }
     else
         return execAlias(argv[1]);
 
