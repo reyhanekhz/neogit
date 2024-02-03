@@ -12,6 +12,11 @@
 
 
 int addAlias(char* alias, char* command){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     FILE* file = fopen (".neogit/aliases", "a");
     if (file == NULL){
         perror ("Error opening aliases file");
@@ -26,6 +31,11 @@ int addAlias(char* alias, char* command){
 
 
 int execAlias(char* alias){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     char line[MAX_LENGTH];
     char orgAlias[MAX_LENGTH];
     char command[MAX_LENGTH];
@@ -47,11 +57,16 @@ int execAlias(char* alias){
 
 
 int globalConfig(const char *key, const char *value) {
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     if (strcmp(key, "user.name") == 0)
     {
-        FILE* file = fopen(".neogit/config/username", "w");
+        FILE* file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUsername", "w");
         if (file == NULL) {
-            perror("error opening username config file");
+            perror("error opening username global config file");
             return 1;
         }
 
@@ -60,9 +75,9 @@ int globalConfig(const char *key, const char *value) {
         return 0;
     }
     else{
-        FILE* file = fopen(".neogit/config/useremail", "w");
+        FILE* file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUseremail", "w");
         if (file == NULL) {
-            perror("error opening useremail config file");
+            perror("error opening useremail global config file");
             return 1;
         }
 
@@ -72,6 +87,36 @@ int globalConfig(const char *key, const char *value) {
     }
 
 }
+
+int localConfig(char* key, char* value){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
+    if (strcmp(key, "user.name") == 0)
+    {
+        FILE* file = fopen (".neogit/localConfig/localUsername", "w");
+        if (file == NULL){
+            perror("Error opening local username file");
+            return 1;
+        }
+        fprintf(file, "local username : %s\n", value);
+        fclose (file);
+    }
+    if (strcmp(key, "user.email") == 0)
+    {
+        FILE* file = fopen (".neogit/localConfig/localUseremail", "w");
+        if (file == NULL){
+            perror("Error opening local useremail file");
+            return 1;
+        }
+        fprintf(file, "local useremail : %s\n", value);
+        fclose (file);
+    }
+    return 0;
+}
+
 
 
 int runInit() {
@@ -104,11 +149,30 @@ int runInit() {
         return 1;
     }
 
+    if (access("/home/reyhane/.neogitGlobalSettings", F_OK) != 0){
+        if (mkdir("/home/reyhane/.neogitGlobalSettings", 0755) != 0){
+            perror ("Error creating global settings directory");
+            return 1;
+        }
+        else {
+            if (mkdir ("/home/reyhane/.neogitGlobalSettings/globalConfig", 0755) ==0){
+                FILE* file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUsername", "w");
+                fclose (file);
+                file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUseremail", "w");
+                fclose(file);
+            }
+            else{
+                perror ("Error creating global config directory");
+                return 1;
+            }
+        }
+    }
 
-    if(mkdir(".neogit/config", 0755) != 0){
-        perror("Error creating config directory");
+    if(mkdir(".neogit/localConfig", 0755) != 0){
+        perror("Error creating commit directory");
         return 1;
     }
+
     if(mkdir(".neogit/commits", 0755) != 0){
         perror("Error creating commit directory");
         return 1;
@@ -118,13 +182,13 @@ int runInit() {
         return 1;
     }
 
-    FILE* file = fopen (".neogit/config/username", "w");
-    fclose(file);
-    file = fopen (".neogit/config/useremail", "w");
-    fclose(file);
-    file = fopen (".neogit/config/trackedFiles", "w");
+    FILE* file = fopen (".neogit/trackedFiles", "w");
     fclose(file);
     file = fopen (".neogit/staging", "w");
+    fclose(file);
+    file = fopen (".neogit/localConfig/localUsername", "w");
+    fclose(file);
+    file = fopen (".neogit/localConfig/localUseremail", "w");
     fclose(file);
     file = fopen(".neogit/tracks", "w");
     fclose(file);
@@ -137,35 +201,79 @@ int runInit() {
 
 }
 
+void addDirToStaging(char* directory){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
+    }
 
-int addToStaging(char* filepath){
+    FILE* file = fopen(".neogit/staging", "r");
+    DIR *dir = opendir(directory);
+    struct dirent* entry;
+    if (dir == NULL) {
+        printf("Error opening current directory\n");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG){
+            strcat(entry->d_name, "\n");
+            char line[MAX_LENGTH];
+
+            while (fgets(line, MAX_LENGTH, file) != NULL){
+                if (strcmp(line, entry->d_name) == 0){
+                printf("File already added to staging area\n");
+                return;
+                }
+            }
+            fclose(file);
+
+            file = fopen (".neogit/staging", "a");
+            fprintf(file, "%s", entry->d_name);
+            fclose(file);
+        }
+    }
+
+    closedir(dir);
+
+}
+
+void addFileToStaging(char* filepath){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
+    }
+
     FILE* file = fopen (".neogit/staging", "r");
     if (file == NULL)
-        return 1;
+        return;
 
     char line[MAX_LENGTH];
-    char path[MAX_LENGTH];
-    sprintf(path, "%s\n", filepath);
+    strcat(filepath, "\n");
 
     while (fgets(line, MAX_LENGTH, file) != NULL){
-        if (strcmp(line, path) == 0){
-            printf("File already added to staging area");
-            return 0;
+        if (strcmp(line, filepath) == 0){
+            printf("File already added to staging area\n");
+            return;
         }
     }
     fclose (file);
 
-    file = fopen (".neogit/staging", "w");
+    file = fopen (".neogit/staging", "a");
     if (file == NULL)
-        return 1;
+        return;
 
-    fprintf(file, "%s\n", path);
+    fprintf(file, "%s", filepath);
     fclose (file);
-    return 0;
 
 }
 
 int commit(){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     FILE* file = fopen(".neogit/staging", "r");
     char filepath[MAX_LENGTH];
     char line[MAX_LENGTH];
@@ -189,6 +297,11 @@ int commit(){
 }
 
 int buildFileCommitDirectory(char* filepath){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     char fileadr[MAX_LENGTH];
     sprintf(fileadr, ".neogit/files/%s", filepath);
     if (mkdir (fileadr, 0755) != 0){
@@ -198,8 +311,39 @@ int buildFileCommitDirectory(char* filepath){
     return 0;
 }
 
+void fileOrDir(char* sth){
+    DIR *dir = opendir(".");
+    struct dirent* entry;
+    if (dir == NULL) {
+        printf("Error opening current directory\n");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG && (strcmp(sth, entry->d_name) == 0)){
+            addFileToStaging(sth);
+            closedir(dir);
+            return;
+            }
+        else if (entry->d_type == DT_DIR && (strcmp(sth, entry->d_name) == 0)){
+            addDirToStaging(sth);
+            closedir(dir);
+            return;
+            }
+        }
+        closedir(dir);
+        printf("No such file or directory\n");
+        return;
+}
+
+
 
 int copyFile(int commitID, char* filepath){
+    if (access(".neogit", F_OK) != 0){
+        perror("No initialized repository");
+        return 1;
+    }
+
     FILE* orgfile = fopen(filepath, "r");
     if (orgfile == NULL)
         return 1;
@@ -231,20 +375,34 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    if (strcmp(argv[1], "config") == 0)
-        return globalConfig(argv[3], argv[4]);
 
+    if (strcmp(argv[1], "config") == 0){
+        if (strcmp (argv[2], "-global") == 0)
+        return globalConfig(argv[3], argv[4]);
+        else
+            return localConfig(argv[2], argv[3]);
+    }
     else if (strcmp(argv[1], "alias") == 0)
         return addAlias(argv[2], argv[3]);
     else if (strcmp(argv[1], "init") == 0)
         return runInit();
     else if (strcmp(argv[1], "add") == 0){
         if (argc == 2){
-            perror ("No files specified");
+            printf("No file or directory specified\n");
             return 1;
         }
-        return addToStaging(argv[2]);
+
+        if (strcmp(argv[2], "-f") == 0){
+            for (int i = 3; argv[i] != '\0'; i++)
+                {
+                    printf("%s\n", argv[4]);
+                    fileOrDir(argv[i]);
+                }
+        }
+        else
+            fileOrDir(argv[2]);
     }
+
     else if (strcmp(argv[1], "commit") == 0){
         commit();
     }
