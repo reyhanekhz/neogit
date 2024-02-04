@@ -161,7 +161,7 @@ int runInit() {
 
     do{
         if (access(".neogit", F_OK) == 0){
-        perror("Neogit repository already exists");
+        printf("Neogit repository already exists\n");
         return 1;
         }
 
@@ -178,7 +178,7 @@ int runInit() {
         return 1;
 
     if (mkdir (".neogit", 0755) != 0){
-        perror("Error creating Neogit directory");
+        printf("Error creating Neogit directory\n");
         return 1;
     }
 
@@ -393,7 +393,7 @@ void commit(int argc, char* argv[]){
     }
     fclose(file);
 
-    file = fopen(".neogit/staging", "a");
+    file = fopen(".neogit/staging", "w");
     if (file == NULL) return;
     fclose(file);
 
@@ -690,25 +690,46 @@ void checkoutCommit(int argc, char* argv[]){
 }
 
 void checkoutFile(int ID, char* filepath){
+    int maxid = -1;
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/files/%s", filepath);
+    DIR *dir = opendir(adr);
+    if (dir == NULL) return 1;
+    struct dirent *entry;
+
+    while((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            int tmp = atoi(entry->d_name);
+            if (tmp > maxid && tmp <= ID)
+                maxid = tmp;
+        }
+    }
+    closedir(dir);
+    char buffer[MAX_LENGTH];
+
+    if (maxid == -1){
+        sprintf(buffer, "rm %s", filepath);
+        system(buffer);
+        return;
+    }
+
+    sprintf(buffer, ".neogit/files/%s/%d", filepath, maxid);
+
+    FILE* commitfile = fopen(buffer, "r");
+    if (commitfile == NULL)
+        return;
+
     FILE* orgfile = fopen(filepath, "w");
     if (orgfile == NULL)
         return;
 
-    char copypath[MAX_LENGTH];
-    sprintf(copypath, ".neogit/files/%s/%d", filepath, ID);
-    FILE* copyfile = fopen(copypath, "r");
-    if (copyfile == NULL)
-        return;
-
     char line[MAX_LENGTH];
-
-    while (fgets(line, MAX_LENGTH, copyfile) != NULL)
+    while (fgets(line, MAX_LENGTH, commitfile) != NULL)
         fprintf(orgfile, "%s", line);
 
     fclose(orgfile);
-    fclose(copyfile);
+    fclose(commitfile);
 }
-
 
 int main(int argc, char* argv[])
 {
