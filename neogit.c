@@ -1,3 +1,4 @@
+//402105965
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -335,7 +336,7 @@ void commit(int argc, char* argv[]){
     else if (strcmp(argv[2], "-s") == 0){
         int flag = 0;
         char buffer[MAX_LENGTH];
-        FILE* fp = fopen (".neogit/messageShortcuts", "r");
+        FILE* fp = fopen (".neogit/messageshortcuts", "r");
         while (fgets (buffer, MAX_LENGTH, fp) != NULL){
             int l = strlen(buffer);
             if (l > 0 && buffer[l - 1] == '\n')
@@ -365,11 +366,10 @@ void commit(int argc, char* argv[]){
 
     FILE* file = fopen (".neogit/HEAD", "r");
     char branch[MAX_LENGTH];
-    fscanf(file, "%s", branch);
+    fgets(branch, MAX_LENGTH, file);
     fclose(file);
 
     int commitID = updateID(branch);
-
 
     file = fopen(".neogit/staging", "r");
     if (file == NULL){
@@ -407,6 +407,7 @@ void commit(int argc, char* argv[]){
     }
 
     char author[MAX_LENGTH];
+    char x[MAX_LENGTH];
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0) {
         fclose(file);
@@ -415,12 +416,14 @@ void commit(int argc, char* argv[]){
             printf("Error opening file\n");
             return;
         }
-
-        fscanf(file, "username : %[^\n]s", author);
+        fgets(x, MAX_LENGTH, file);
+        sscanf(x, "username : %[^\n]s", author);
         fclose(file);
     }
-    else{
-        fscanf(file, "local username : %[^\n]s", author);
+    else {
+        rewind(file);
+        fgets(x, MAX_LENGTH, file);
+        sscanf(x, "local username : %[^\n]s", author);
         fclose(file);
     }
 
@@ -430,7 +433,9 @@ void commit(int argc, char* argv[]){
         return;
     }
 
+
     char email[MAX_LENGTH];
+    char y[MAX_LENGTH];
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0) {
         fclose(file);
@@ -440,11 +445,14 @@ void commit(int argc, char* argv[]){
             return;
         }
 
-        fscanf(file, "useremail : %[^\n]s", email);
+        fgets(y, MAX_LENGTH, file);
+        sscanf(y, "useremail : %[^\n]s", email);
         fclose(file);
     }
     else{
-        fscanf(file, "local useremail : %[^\n]s", email);
+        rewind(file);
+        fgets(y, MAX_LENGTH, file);
+        sscanf(y, "local useremail : %[^\n]s", email);
         fclose(file);
     }
 
@@ -454,12 +462,12 @@ void commit(int argc, char* argv[]){
     time(&current_time);
     time_info = localtime(&current_time);
 
-    printf("On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", branch, commitID, message, filecount, author, asctime(time_info));
+    printf("On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s <%s>\n%s", branch, commitID, message, filecount, author, email, asctime(time_info));
 
     char adr[MAX_LENGTH];
     sprintf(adr, ".neogit/commits/%d", commitID);
     file = fopen (adr, "w");
-    fprintf(file, "On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", branch, commitID, message, filecount, author, asctime(time_info));
+    fprintf(file, "On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s <%s>\n%s", branch, commitID, message, filecount, author, email, asctime(time_info));
     fclose(file);
 
 }
@@ -657,9 +665,9 @@ void messageShortcut(int argc, char* argv[]){
     char message[MAX_LENGTH];
     char shortcut[MAX_LENGTH];
     strcpy(message, argv[3]);
-    strcpy(shortcut, argv[4]);
+    strcpy(shortcut, argv[5]);
 
-    FILE* file = fopen(".neogit/messageshortcuts", "w");
+    FILE* file = fopen(".neogit/messageshortcuts", "a");
     if (file == NULL){
         printf("Error opening file\n");
         return;
@@ -668,6 +676,84 @@ void messageShortcut(int argc, char* argv[]){
     fprintf(file, "%s : %s\n", shortcut, message);
     fclose(file);
 }
+
+void replaceShortcut(int argc, char* argv[]){
+    FILE *orgfile = fopen(".neogit/messageshortcuts", "r");
+    FILE *tempFile = fopen("temp", "w");
+
+    if (orgfile == NULL || tempFile == NULL) {
+        printf("Error opening files\n");
+        return;
+    }
+
+    char buffer[1024];
+    char shortcut[1024];
+    char message[1024];
+    int flag =0;
+
+    while (fgets(buffer, sizeof(buffer), orgfile)) {
+        buffer [strcspn(buffer, "\n")] = '\0';
+        sscanf(buffer, "%s : %[^\n]s", shortcut, message);
+        if (strcmp(shortcut, argv[5]) == 0){
+            sprintf(buffer, "%s : %s", shortcut, argv[3]);
+            fprintf(tempFile, "%s\n", buffer);
+            flag = 1;
+        }
+        else
+            fprintf(tempFile, "%s\n", buffer);
+    }
+
+
+    if (flag == 0){
+        printf("Invalid Shortcut\n");
+        return;
+    }
+
+    fclose(orgfile);
+    fclose(tempFile);
+
+    system ("rm .neogit/messageshortcuts");
+    system ("cp temp .neogit/messageshortcuts");
+
+}
+
+void removeShortcut(int argc, char* argv[]){
+    FILE *orgfile = fopen(".neogit/messageshortcuts", "r");
+    FILE *tempFile = fopen("temp", "w");
+
+    if (orgfile == NULL || tempFile == NULL) {
+        printf("Error opening files\n");
+        return;
+    }
+
+    char buffer[1024];
+    char shortcut[1024];
+    char message[1024];
+    int flag =0;
+
+    while (fgets(buffer, sizeof(buffer), orgfile)) {
+        buffer [strcspn(buffer, "\n")] = '\0';
+        sscanf(buffer, "%s : %[^\n]s", shortcut, message);
+        if (strcmp(shortcut, argv[3]) == 0)
+            flag = 1;
+        else
+            fprintf(tempFile, "%s\n", buffer);
+    }
+
+
+    if (flag == 0){
+        printf("Invalid Shortcut\n");
+        return;
+    }
+
+    fclose(orgfile);
+    fclose(tempFile);
+
+    system ("rm .neogit/messageshortcuts");
+    system ("cp temp .neogit/messageshortcuts");
+
+}
+
 
 void checkoutCommit(int argc, char* argv[]){
     int ID;
@@ -880,6 +966,46 @@ void logC(int argc, char* argv[]){
 
 }
 
+void logn(int argc, char* argv[]){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
+    }
+
+    int currentid;
+    FILE* file = fopen (".neogit/commitID", "r");
+    if (file == NULL){
+        printf("Error opening file\n");
+        return;
+    }
+
+    char temp[MAX_LENGTH];
+    fscanf(file, "%s", temp);
+    currentid = atoi(temp);
+    fclose(file);
+
+    int tmp = atoi (argv[3]);
+    int tempid = currentid - tmp + 1;
+
+    while(tempid <= currentid){
+        char adr[MAX_LENGTH];
+        sprintf(adr, ".neogit/commits/%d", tempid);
+        file = fopen (adr, "r");
+        if (file == NULL){
+            printf("Error opening file\n");
+            return;
+        }
+
+        char line[MAX_LENGTH];
+        while(fgets(line, MAX_LENGTH, file) != NULL)
+                printf("%s", line);
+            printf("\n");
+
+        fclose(file);
+        tempid++;
+}
+}
+
 void listBranch(int argc, char* argv[]){
     DIR* dir = opendir(".neogit/branchID");
     if (dir == NULL){
@@ -890,7 +1016,11 @@ void listBranch(int argc, char* argv[]){
     struct dirent* entry;
     printf("Branches:\n");
     while ((entry = readdir (dir)) != NULL)
-        printf("%s\n", entry->d_name);
+    {
+        if (entry->d_type == DT_REG)
+            printf("%s\n", entry->d_name);
+    }
+
 
     closedir(dir);
 }
@@ -955,8 +1085,13 @@ int main(int argc, char* argv[]){
     else if (strcmp(argv[1], "set") == 0)
         messageShortcut(argc, argv);
 
-    else if (strcmp(argv[1], "log") == 0)
-        logC(argc, argv);
+    else if (strcmp(argv[1], "log") == 0){
+        if (strcmp(argv[2], "-n") == 0)
+            logn(argc, argv);
+        else
+            logC(argc, argv);
+    }
+
 
     else if (strcmp(argv[1], "checkout") == 0){
         DIR* dir = opendir(".neogit/branchID");
@@ -984,6 +1119,10 @@ int main(int argc, char* argv[]){
         else if (argc == 2)
             listBranch(argc, argv);
     }
+    else if (strcmp(argv[2], "replace") == 0)
+        replaceShortcut(argc, argv);
+    else if (strcmp(argv[2], "remove") == 0)
+        removeShortcut(argc, argv);
 
     else
         execAlias(argv[1]);
