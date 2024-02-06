@@ -10,48 +10,71 @@
 
 #define MAX_LENGTH 1000
 
-int globalConfig(const char *key, const char *value);
+void globalConfig(const char *key, const char *value);
 int isStaged(char* filepath);
-int localConfig(char* key, char* value);
-int runInit();
-void addDirToStaging(char argv[2], char* directory);
-void addFileToStaging(char argv[2], char* filepath);
-void fileOrDir(char argv[2], char* sth);
+void localConfig(char* key, char* value);
+void runInit();
+void addFileToStaging(char* filepath);
+void fileOrDir(char* argv[], char* sth);
 void resetFile(char* filepath);
 void resetUndo();
 void addn();
 void commit(int argc, char* argv[]);
-int incrementID();
+int updateID(char* branch);
 void buildFileCommitDirectory(char* filepath);
 void copyFile(int commitID, char* filepath);
 void messageShortcut(int argc, char* argv[]);
-void log(int argc, char* argv[]);
+void logC(int argc, char* argv[]);
 void checkoutCommit(int argc, char* argv[]);
+void createBranch(int argc, char* argv[]);
+int getBranchID(char* branch);
+void status(int argc, char* argv[]);
+void addAlias(char* alias, char* command);
+void execAlias(char* alias);
+void listBranch(int argc, char* argv[]);
+void checkoutFile(int ID, char* filepath);
 
 
 
-/*int addAlias(char* alias, char* command){
+void addLocalAlias(char* alias, char* command){
     if (access(".neogit", F_OK) != 0){
-        perror("No initialized repository");
-        return 1;
+        printf("No initialized repository\n");
+        return;
     }
 
     FILE* file = fopen (".neogit/aliases", "a");
     if (file == NULL){
         perror ("Error opening aliases file");
-        return 1;
+        return;
     }
 
     fprintf(file, "%s : %s\n", alias, command);
     fclose(file);
-    return 0;
+    return;
 
 }
 
-int execAlias(char* alias){
+void addGlobalAlias(char* alias, char* command){
     if (access(".neogit", F_OK) != 0){
-        perror("No initialized repository");
-        return 1;
+        printf("No initialized repository\n");
+        return;
+    }
+
+    FILE* file = fopen ("/home/reyhane/.neogitGlobalSettings/globalAliases", "a");
+    if (file == NULL){
+        printf ("Error opening aliases file\n");
+        return;
+    }
+
+    fprintf(file, "%s : %s\n", alias, command);
+    fclose(file);
+
+}
+
+void execAlias(char* alias){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
     }
 
     char line[MAX_LENGTH];
@@ -59,49 +82,44 @@ int execAlias(char* alias){
     char command[MAX_LENGTH];
 
     FILE* file = fopen(".neogit/aliases", "r");
-
     while ( fgets(line, MAX_LENGTH, file) != NULL){
-        sscanf(line, "%s : %[^\n]s\n", orgAlias, command);
+        int length = strlen(line);
+        if (length > 0 && line[length - 1] == '\n')
+            line[length - 1] = '\0';
+        sscanf(line, "%s : %[^\n]s", orgAlias, command);
+
         if (strcmp(orgAlias, alias) == 0){
             system(command);
-            return 0;
+            return;
         }
     }
 
-    perror ("Invalid alias");
-    return 1;
+    printf ("Invalid alias\n");
 
 }
-*/
 
-int globalConfig(const char *key, const char *value) {
-    if (access(".neogit", F_OK) != 0){
-        perror("No initialized repository");
-        return 1;
-    }
-
+void globalConfig(const char *key, const char *value) {
     if (strcmp(key, "user.name") == 0)
     {
         FILE* file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUsername", "w");
         if (file == NULL) {
-            perror("error opening username global config file");
-            return 1;
+            printf("Error opening username global config file\n");
+            return;
         }
 
-        fprintf(file, "username: %s\n", value);
+        fprintf(file, "username : %s", value);
         fclose(file);
-        return 0;
     }
-    else{
+
+    else if(strcmp(key, "user.email") == 0){
         FILE* file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUseremail", "w");
         if (file == NULL) {
-            perror("error opening useremail global config file");
-            return 1;
+            printf("error opening useremail global config file\n");
+            return;
         }
 
-        fprintf(file, "useremail: %s\n", value);
+        fprintf(file, "useremail : %s", value);
         fclose(file);
-        return 0;
     }
 
 }
@@ -123,69 +141,69 @@ int isStaged(char* filepath){
     return 0;
 }
 
-int localConfig(char* key, char* value){
+void localConfig(char* key, char* value){
     if (access(".neogit", F_OK) != 0){
-        perror("No initialized repository");
-        return 1;
+        printf("No initialized repository\n");
+        return;
     }
 
     if (strcmp(key, "user.name") == 0)
     {
         FILE* file = fopen (".neogit/localConfig/localUsername", "w");
         if (file == NULL){
-            perror("Error opening local username file");
-            return 1;
+            printf("Error opening local username file\n");
+            return;
         }
-        fprintf(file, "local username : %s\n", value);
+        fprintf(file, "local username : %s", value);
         fclose (file);
     }
     if (strcmp(key, "user.email") == 0)
     {
         FILE* file = fopen (".neogit/localConfig/localUseremail", "w");
         if (file == NULL){
-            perror("Error opening local useremail file");
-            return 1;
+            printf("Error opening local useremail file\n");
+            return;
         }
-        fprintf(file, "local useremail : %s\n", value);
+        fprintf(file, "local useremail : %s", value);
         fclose (file);
     }
-    return 0;
+
 }
 
-int runInit() {
+void runInit() {
     char parentdir[MAX_LENGTH];
     char currentdir[MAX_LENGTH];
     if (getcwd(currentdir, MAX_LENGTH) == NULL)
-        return 1;
+        return;
 
 
-    do{
+    do {
         if (access(".neogit", F_OK) == 0){
         printf("Neogit repository already exists\n");
-        return 1;
+        return;
         }
 
         if (chdir("..") != 0)
-            return 1;
+            return;
 
         if (getcwd(parentdir, MAX_LENGTH) == NULL)
-            return 1;
+            return;
 
 
     } while (strcmp(parentdir, "/") != 0);
 
     if (chdir(currentdir) != 0)
-        return 1;
+        return;
 
     if (mkdir (".neogit", 0755) != 0){
         printf("Error creating Neogit directory\n");
-        return 1;
+        return;
     }
 
     if (access("/home/reyhane/.neogitGlobalSettings", F_OK) != 0){
         if (mkdir("/home/reyhane/.neogitGlobalSettings", 0755) != 0){
             perror ("Error creating global settings directory");
-            return 1;
+            return;
         }
         else {
             if (mkdir ("/home/reyhane/.neogitGlobalSettings/globalConfig", 0755) ==0){
@@ -193,131 +211,108 @@ int runInit() {
                 fclose (file);
                 file = fopen("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUseremail", "w");
                 fclose(file);
+                file = fopen("/home/reyhane/.neogitGlobalSettings/globalALiases", "w");
+                fclose(file);
             }
             else{
                 perror ("Error creating global config directory");
-                return 1;
+                return;
             }
         }
     }
 
     if(mkdir(".neogit/localConfig", 0755) != 0){
-        perror("Error creating commit directory");
-        return 1;
+        printf("Error creating directory\n");
+        return;
     }
 
     if(mkdir(".neogit/commits", 0755) != 0){
-        perror("Error creating commit directory");
-        return 1;
+        printf("Error creating commit directory\n");
+        return;
     }
+
     if(mkdir(".neogit/files", 0755) != 0){
-        perror("Error creating files directory");
-        return 1;
+        printf("Error creating files directory\n");
+        return;
+    }
+
+    if(mkdir(".neogit/branchID", 0755) != 0){
+        printf("Error creating directory\n");
+        return;
     }
 
     FILE* file = fopen (".neogit/trackedFiles", "w");
     fclose(file);
     file = fopen (".neogit/staging", "w");
     fclose(file);
+    file = fopen (".neogit/latestStaged", "w");
+    fclose(file);
     file = fopen (".neogit/localConfig/localUsername", "w");
     fclose(file);
     file = fopen (".neogit/localConfig/localUseremail", "w");
     fclose(file);
-    file = fopen(".neogit/tracks", "w");
+    file = fopen (".neogit/aliases", "w");
     fclose(file);
-    file = fopen(".neogit/commitID", "w");
+    file = fopen (".neogit/messageShortcuts", "w");
+    fclose (file);
+    file = fopen (".neogit/HEAD", "w");
+    fprintf(file, "master");
+    fclose(file);
+    file = fopen (".neogit/commitID", "w");
+    fprintf(file, "100");
+    fclose(file);
+    file = fopen(".neogit/branchID/master", "w");
     fprintf(file, "100");
     fclose(file);
 
 
     printf("Empty Neogit repository initialized in %s\n", currentdir);
-    return 0;
 
 }
 
-/*void addDirToStaging(char argv[2], char* directory){
-    if (access(".neogit", F_OK) != 0){
-        printf("No initialized repository\n");
-        return;
-    }
-
-    FILE* file = fopen(".neogit/staging", "r");
-    DIR *dir = opendir(directory);
-    struct dirent* entry;
-    if (dir == NULL) {
-        printf("Error opening current directory\n");
-        return;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_REG){
-            if (isStaged(entry->d_name) == 1){
-                printf("File already added to staging area\n");
-                fclose(file);
-                return;
-            }
-
-            fclose(file);
-
-            file = fopen (".neogit/staging", "a");
-            if (strcmp(argv[2], "-f") == 0)
-                FILE* f = fopen (".neogit/latestStaged", "a");
-            else
-                FILE* f = fopen (".neogit/latestStaged", "w");
-            fprintf(file, "%s\n", entry->d_name);
-            fprintf(f, "%s\n", entry->d_name);
-            fclose(file);
-            fclose(f);
-        }
-    }
-
-    closedir(dir);
-
-}
-
-void addFileToStaging(char argv[2], char* filepath){
+void addFileToStaging(char* filepath) {
     if (access(".neogit", F_OK) != 0){
         printf("No initialized repository\n");
         return;
     }
 
     if (isStaged(filepath)){
-        printf("File already added to staging area\n");
+        printf("File is already stgaed\n");
         return;
     }
 
     FILE* file = fopen (".neogit/staging", "a");
-    if (strcmp(argv[2], "-f") == 0)
-        FILE* f = fopen (".neogit/latestStaged", "a");
-    else
-        FILE* f = fopen (".neogit/latestStaged", "w");
-
-
-    if (file == NULL || f == NULL)
+    if (file == NULL)
         return;
 
     fprintf(file, "%s\n", filepath);
-    fprintf(f, "%s\n", filepath);
 
-    printf("Added to staging area\n");
+    printf("%s : Added to staging area\n", filepath);
     fclose (file);
-    fclose(f);
+}
 
-}*/
-
-int incrementID(){
+int updateID(char* branch){
     FILE* file = fopen (".neogit/commitID", "r");
-    char idstring[MAX_LENGTH];
+    if (file == NULL)
+        return -1;
+
     int ID;
-    fscanf(file, "%s", idstring);
-    ID = atoi(idstring);
-    fclose(file);
+    char string[MAX_LENGTH];
+    fscanf(file, "%s", string);
+    ID = atoi(string);
+    ID ++;
+    fclose (file);
 
     file = fopen (".neogit/commitID", "w");
-    ID++;
-    sprintf(idstring, "%d", ID);
-    fprintf(file, "%s", idstring);
+    fprintf(file, "%d", ID);
     fclose(file);
+
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/branchID/%s", branch);
+    file = fopen (adr, "w");
+    fprintf(file, "%d", ID);
+    fclose(file);
+
     return ID;
 }
 
@@ -340,8 +335,8 @@ void commit(int argc, char* argv[]){
     else if (strcmp(argv[2], "-s") == 0){
         int flag = 0;
         char buffer[MAX_LENGTH];
-        FILE* file = fopen (".neogit/messageShortcuts", "r");
-        while (fgets (buffer, MAX_LENGTH, file) != NULL){
+        FILE* fp = fopen (".neogit/messageShortcuts", "r");
+        while (fgets (buffer, MAX_LENGTH, fp) != NULL){
             int l = strlen(buffer);
             if (l > 0 && buffer[l - 1] == '\n')
                 buffer[l - 1] = '\0';
@@ -355,7 +350,7 @@ void commit(int argc, char* argv[]){
                 break;
             }
         }
-        fclose (file);
+        fclose (fp);
         if (flag == 0){
             printf("Invalid shortcut\n");
             return;
@@ -367,9 +362,16 @@ void commit(int argc, char* argv[]){
         printf("Commit message too long\n");
         return;
     }
-    int commitID = incrementID();
 
-    FILE* file = fopen(".neogit/staging", "r");
+    FILE* file = fopen (".neogit/HEAD", "r");
+    char branch[MAX_LENGTH];
+    fscanf(file, "%s", branch);
+    fclose(file);
+
+    int commitID = updateID(branch);
+
+
+    file = fopen(".neogit/staging", "r");
     if (file == NULL){
         printf("Error opening file\n");
         return;
@@ -383,7 +385,7 @@ void commit(int argc, char* argv[]){
         if (length > 0 && line[length - 1] == '\n')
             line[length - 1] = '\0';
 
-        char adr[MAX_LENGTH];
+        char adr[1500];
         sprintf(adr, ".neogit/files/%s", line);
         if (access(adr, F_OK) != 0)
             buildFileCommitDirectory(line);
@@ -392,6 +394,7 @@ void commit(int argc, char* argv[]){
         filecount ++;
     }
     fclose(file);
+
 
     file = fopen(".neogit/staging", "w");
     if (file == NULL) return;
@@ -408,14 +411,40 @@ void commit(int argc, char* argv[]){
     if (ftell(file) == 0) {
         fclose(file);
         file = fopen ("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUsername", "r");
-        if (file == NULL)
+        if (file == NULL){
+            printf("Error opening file\n");
             return;
+        }
 
         fscanf(file, "username : %[^\n]s", author);
         fclose(file);
     }
     else{
-        fscanf(file, "username : %[^\n]s", author);
+        fscanf(file, "local username : %[^\n]s", author);
+        fclose(file);
+    }
+
+    file = fopen (".neogit/localConfig/localUseremail", "r");
+    if (file == NULL){
+        printf("Error opening file\n");
+        return;
+    }
+
+    char email[MAX_LENGTH];
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0) {
+        fclose(file);
+        file = fopen ("/home/reyhane/.neogitGlobalSettings/globalConfig/globalUseremail", "r");
+        if (file == NULL){
+            printf("Error opening file\n");
+            return;
+        }
+
+        fscanf(file, "useremail : %[^\n]s", email);
+        fclose(file);
+    }
+    else{
+        fscanf(file, "local useremail : %[^\n]s", email);
         fclose(file);
     }
 
@@ -425,12 +454,12 @@ void commit(int argc, char* argv[]){
     time(&current_time);
     time_info = localtime(&current_time);
 
-    printf("Commit done successfully\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", commitID, message, filecount, author, asctime(time_info));
+    printf("On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", branch, commitID, message, filecount, author, asctime(time_info));
 
     char adr[MAX_LENGTH];
     sprintf(adr, ".neogit/commits/%d", commitID);
     file = fopen (adr, "w");
-    fprintf(file, "On branch : MASTER\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", commitID, message, filecount, author, asctime(time_info));
+    fprintf(file, "On branch : %s\nCommit ID : %d\nCommit Message : %s\nFiles commited: %d\nAuthor: %s\n%s", branch, commitID, message, filecount, author, asctime(time_info));
     fclose(file);
 
 }
@@ -444,7 +473,7 @@ void buildFileCommitDirectory(char* filepath){
     }
 }
 
-/*void fileOrDir(char argv[2], char* sth){
+void fileOrDir(char* argv[], char* sth){
     DIR *dir = opendir(".");
     struct dirent* entry;
     if (dir == NULL) {
@@ -452,22 +481,40 @@ void buildFileCommitDirectory(char* filepath){
         return;
     }
 
+    FILE* fp = fopen (".neogit/latestStaged", "a");
+
+
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_REG && (strcmp(sth, entry->d_name) == 0)){
-            addFileToStaging(char argv[2], sth);
+            addFileToStaging(sth);
+            fprintf(fp , "%s\n", sth);
             closedir(dir);
+            fclose(fp);
             return;
-            }
-        else if (entry->d_type == DT_DIR && (strcmp(sth, entry->d_name) == 0)){
-            addDirToStaging(char argv[2], sth);
-            closedir(dir);
-            return;
-            }
         }
+
+        else if (entry->d_type == DT_DIR && (strcmp(sth, entry->d_name) == 0)){
+            DIR* direc = opendir(entry->d_name);
+            struct dirent* file;
+
+            while ((file = readdir(direc)) != NULL){
+                if (file->d_type == DT_REG){
+                    addFileToStaging(file->d_name);
+                    fprintf(fp , "%s\n", sth);
+                }
+            }
+            closedir(direc);
+            closedir(dir);
+            fclose(fp);
+            return;
+        }
+    }
+
+    fclose(fp);
     closedir(dir);
     printf("No such file or directory\n");
-    return;
-}*/
+
+}
 
 void copyFile(int commitID, char* filepath){
     FILE* orgfile = fopen(filepath, "r");
@@ -493,18 +540,18 @@ void copyFile(int commitID, char* filepath){
 
 void resetFile(char* filepath){
     if (access(".neogit", F_OK) != 0){
-        perror("No initialized repository");
+        printf("No initialized repository\n");
         return;
     }
 
     if (!isStaged(filepath)){
-        printf("File is not staged already");
+        printf("File is not staged already\n");
         return;
     }
 
     FILE* file = fopen(".neogit/staging", "r");
     FILE* tempfile= fopen (".neogit/temp", "w");
-    char line[1024];
+    char line[MAX_LENGTH];
 
     if (file == NULL || tempfile == NULL) {
         printf("Error opening file\n");
@@ -541,6 +588,7 @@ void resetUndo(){
         printf("Error opening file\n");
         return;
     }
+
     char line[MAX_LENGTH];
     fgets(line, MAX_LENGTH, file);
     line [strcspn(line, "\n")] = '\0';
@@ -621,13 +669,169 @@ void messageShortcut(int argc, char* argv[]){
     fclose(file);
 }
 
-void log(int argc, char* argv[]){
+void checkoutCommit(int argc, char* argv[]){
+    int ID;
+    ID = atoi(argv[2]);
+
+    DIR* dir = opendir(".");
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL){
+        if (entry->d_type == DT_REG)
+            checkoutFile(ID, entry->d_name);
+
+        else if (entry->d_type == DT_DIR){
+            DIR* direc = opendir(entry->d_name);
+            struct dirent* file;
+
+            while ((file = readdir(direc)) != NULL){
+                if (file->d_type == DT_REG)
+                    checkoutFile(ID, file->d_name);
+            }
+            closedir(direc);
+        }
+    }
+
+    closedir(dir);
+}
+
+void checkoutFile(int ID, char* filepath){
+    int maxid = -1;
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/files/%s", filepath);
+    DIR *dir = opendir(adr);
+    if (dir == NULL)
+        return;
+    struct dirent *entry;
+
+    while((entry = readdir(dir)) != NULL) {
+        int tmp = atoi(entry->d_name);
+        if (maxid < tmp && tmp <= ID)
+            maxid = tmp;
+    }
+
+    closedir(dir);
+    char buffer[MAX_LENGTH];
+
+    if (maxid == -1) {
+        sprintf(buffer, "rm %s", filepath);
+        system(buffer);
+        return;
+    }
+
+    sprintf(buffer, ".neogit/files/%s/%d", filepath, maxid);
+
+    FILE* commitfile = fopen(buffer, "r");
+    if (commitfile == NULL)
+        return;
+
+    FILE* orgfile = fopen(filepath, "w");
+    if (orgfile == NULL)
+        return;
+
+    char line[MAX_LENGTH];
+    while (fgets(line, MAX_LENGTH, commitfile) != NULL)
+        fprintf(orgfile, "%s", line);
+
+    fclose(orgfile);
+    fclose(commitfile);
+}
+
+void createBranch(int argc, char* argv[]){
     if (access(".neogit", F_OK) != 0){
         printf("No initialized repository\n");
         return;
     }
 
-    int tempid = 104;
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/branchID/%s", argv[2]);
+    FILE* file = fopen (adr, "w");
+    if (file == NULL){
+        printf("Error opening file\n");
+        return;
+    }
+
+    fprintf(file, "%d", getBranchID("master"));
+    fclose(file);
+
+    printf("%s : New branch created at commit ID : %d\n", argv[2], getBranchID("master"));
+}
+
+int getBranchID(char* branch){
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/branchID/%s", branch);
+    FILE* file = fopen (adr, "r");
+    if (file == NULL){
+        printf("Branch doesn't exist\n");
+        return -1;
+    }
+
+    int ID;
+    char string[MAX_LENGTH];
+    fscanf(file , "%s", string);
+    ID = atoi(string);
+    fclose(file);
+
+    return ID;
+}
+
+void checkoutBranch(int argc, char* argv[]){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
+    }
+
+    char branch[MAX_LENGTH];
+    if (strcmp(argv[2], "HEAD") == 0){
+        FILE* file = fopen (".neogit/HEAD", "r");
+        fscanf(file, "%s", branch);
+    }
+    else
+        strcpy(branch, argv[2]);
+
+    char adr[MAX_LENGTH];
+    sprintf(adr, ".neogit/branchID/%s", argv[2]);
+    FILE* file = fopen (adr, "r");
+    if (file == NULL){
+        printf("Branch doesn't exist\n");
+        return;
+    }
+    fclose(file);
+
+    file = fopen (".neogit/HEAD", "w");
+    fprintf(file, "%s", argv[2]);
+
+    int ID = getBranchID(argv[2]);
+    DIR* dir = opendir(".");
+    if (dir == NULL)
+        return;
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL){
+        if (entry->d_type == DT_REG)
+            checkoutFile(ID, entry->d_name);
+
+        else if (entry->d_type == DT_DIR){
+            DIR* direc = opendir(entry->d_name);
+            struct dirent* file;
+
+            while ((file = readdir(direc)) != NULL){
+                if (file->d_type == DT_REG)
+                    checkoutFile(ID, file->d_name);
+            }
+            closedir(direc);
+        }
+    }
+
+    closedir(dir);
+}
+
+void logC(int argc, char* argv[]){
+    if (access(".neogit", F_OK) != 0){
+        printf("No initialized repository\n");
+        return;
+    }
+
+    int tempid = 101;
     int currentid;
     FILE* file = fopen (".neogit/commitID", "r");
     if (file == NULL){
@@ -666,7 +870,7 @@ void log(int argc, char* argv[]){
         }
         else {
             while(fgets(line, MAX_LENGTH, file) != NULL)
-            printf("%s", line);
+                printf("%s", line);
             printf("\n");
         }
 
@@ -676,81 +880,49 @@ void log(int argc, char* argv[]){
 
 }
 
-void checkoutCommit(int argc, char* argv[]){
-    int ID;
-    ID = atoi(argv[2]);
+void listBranch(int argc, char* argv[]){
+    DIR* dir = opendir(".neogit/branchID");
+    if (dir == NULL){
+        printf("Error opening directory\n");
+        return;
+    }
 
-    DIR* dir = opendir(".");
     struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL){
-        if (entry->d_type == DT_REG)
-            checkoutFile(ID, entry->d_name);
-    }
+    printf("Branches:\n");
+    while ((entry = readdir (dir)) != NULL)
+        printf("%s\n", entry->d_name);
 
-}
-
-void checkoutFile(int ID, char* filepath){
-    int maxid = -1;
-    char adr[MAX_LENGTH];
-    sprintf(adr, ".neogit/files/%s", filepath);
-    DIR *dir = opendir(adr);
-    if (dir == NULL) return 1;
-    struct dirent *entry;
-
-    while((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_REG) {
-            int tmp = atoi(entry->d_name);
-            if (tmp > maxid && tmp <= ID)
-                maxid = tmp;
-        }
-    }
     closedir(dir);
-    char buffer[MAX_LENGTH];
-
-    if (maxid == -1){
-        sprintf(buffer, "rm %s", filepath);
-        system(buffer);
-        return;
-    }
-
-    sprintf(buffer, ".neogit/files/%s/%d", filepath, maxid);
-
-    FILE* commitfile = fopen(buffer, "r");
-    if (commitfile == NULL)
-        return;
-
-    FILE* orgfile = fopen(filepath, "w");
-    if (orgfile == NULL)
-        return;
-
-    char line[MAX_LENGTH];
-    while (fgets(line, MAX_LENGTH, commitfile) != NULL)
-        fprintf(orgfile, "%s", line);
-
-    fclose(orgfile);
-    fclose(commitfile);
 }
 
-int main(int argc, char* argv[])
-{
+
+int main(int argc, char* argv[]){
     if (argc == 1)
-    {
-        perror("invalid command");
-        return 1;
-    }
+        printf("invalid command\n");
 
     if (strcmp(argv[1], "config") == 0){
-        if (strcmp (argv[2], "-global") == 0)
-        return globalConfig(argv[3], argv[4]);
-        else
-            return localConfig(argv[2], argv[3]);
+        if (strcmp (argv[2], "-global") == 0){
+            if (strcmp(argv[3], "user.name") == 0 || strcmp(argv[3], "user.email") == 0)
+                globalConfig(argv[3], argv[4]);
+            else{
+                char alias[MAX_LENGTH];
+                sscanf(argv[3], "alias.%s", alias);
+                addGlobalAlias(alias, argv[4]);
+            }
+        }
+        else {
+            if (strcmp(argv[2], "user.name") == 0 || strcmp(argv[2], "user.email") == 0)
+                localConfig(argv[2], argv[3]);
+            else{
+                char alias[MAX_LENGTH];
+                sscanf(argv[2], "alias.%s", alias);
+                addLocalAlias(alias, argv[3]);
+            }
+        }
     }
 
-   /* else if (strcmp(argv[1], "alias") == 0)
-        return addAlias(argv[2], argv[3]);
-*/
     else if (strcmp(argv[1], "init") == 0)
-        return runInit();
+        runInit();
 
     else if (strcmp(argv[1], "add") == 0){
         if (argc == 2){
@@ -758,32 +930,64 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        /*if (strcmp(argv[2], "-f") == 0) {
+        FILE* file = fopen (".neogit/latestStaged", "w");
+        fclose(file);
+
+        if (strcmp(argv[2], "-f") == 0) {
             for (int i = 3; i<argc ; i++){
                 printf("%s: ", argv[i]);
-                fileOrDir(char argv[2], argv[i]);
+                fileOrDir(argv, argv[i]);
             }
-        }*/
+        }
         else if (strcmp(argv[2], "-n") == 0)
             addn();
 
-        /*else
-            fileOrDir(argv[2]);*/
+        else
+            fileOrDir(argv, argv[2]);
     }
-    else if (strcmp(argv[1], "reset") == 0)
-        resetUndo();
+    else if (strcmp(argv[1], "reset") == 0){
+        if (strcmp(argv[2], "-undo") == 0)
+            resetUndo();
+        else resetFile(argv[2]);
+    }
     else if (strcmp(argv[1], "commit") == 0)
         commit(argc, argv);
     else if (strcmp(argv[1], "set") == 0)
         messageShortcut(argc, argv);
+
     else if (strcmp(argv[1], "log") == 0)
-        log(argc, argv);
-    else if (strcmp(argv[1], "checkout") == 0)
-        checkoutCommit(argc, argv);
+        logC(argc, argv);
+
+    else if (strcmp(argv[1], "checkout") == 0){
+        DIR* dir = opendir(".neogit/branchID");
+        struct dirent* entry;
+        int flag =0;
+        while ((entry = readdir(dir)) != NULL){
+            if (strcmp(argv[2], entry->d_name) == 0){
+                checkoutBranch(argc, argv);
+                flag = 1;
+                break;
+            }
+        }
+        if (strcmp(argv[2], "HEAD") == 0){
+            checkoutBranch(argc, argv);
+            flag == 1;
+        }
+        if (flag == 0)
+            checkoutCommit(argc, argv);
+    }
 
 
-         /*else
-        return execAlias(argv[1]);
-    */return 0;
+    else if (strcmp(argv[1], "branch") == 0){
+        if (argc == 3)
+            createBranch(argc, argv);
+        else if (argc == 2)
+            listBranch(argc, argv);
+    }
+
+    else
+        execAlias(argv[1]);
+
+    return 0;
 
 }
